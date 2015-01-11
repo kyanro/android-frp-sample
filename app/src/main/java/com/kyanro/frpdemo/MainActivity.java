@@ -7,7 +7,16 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.widget.Toast;
 
+import com.kyanro.frpdemo.models.api.github.GithubUser;
+import com.kyanro.frpdemo.service.api.github.GithubService;
+
+import java.util.List;
+
+import retrofit.RestAdapter;
+import retrofit.RestAdapter.Builder;
 import rx.Observable;
+import rx.android.schedulers.AndroidSchedulers;
+import rx.functions.Action1;
 
 
 public class MainActivity extends ActionBarActivity {
@@ -17,13 +26,21 @@ public class MainActivity extends ActionBarActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        Observable<String> requestStream = Observable.just("https://api.github.com/users");
+        // 手動で作る場合ならこっちだが、今回はretrofitを利用するのでつかわない
+        //Observable<String> requestStream = Observable.just("https://api.github.com/users");
+
+        RestAdapter restAdapter = new Builder().setEndpoint("https://api.github.com").build();
+        GithubService service = restAdapter.create(GithubService.class);
+
+        Observable<List<GithubUser>> responseStream = service.listUsers();
 
         // debug
-        requestStream.subscribe(s -> {
-                Toast.makeText(MainActivity.this, s, Toast.LENGTH_LONG).show();
-                Log.d("myrx", "request?:" + s);
-        });
+        responseStream
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe(list -> {
+                    Toast.makeText(MainActivity.this, list.get(0).login, Toast.LENGTH_LONG).show();
+                    Log.d("myrx", "login name:" + list.get(0).login);
+                }, throwable -> Log.d("myrx", "error:" + throwable.getMessage()));
     }
 
     @Override
