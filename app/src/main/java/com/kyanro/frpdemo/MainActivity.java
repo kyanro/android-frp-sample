@@ -5,34 +5,70 @@ import android.support.v7.app.ActionBarActivity;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.View;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import com.kyanro.frpdemo.models.api.github.GithubUser;
 import com.kyanro.frpdemo.service.api.github.GithubService;
 
 import java.util.List;
+import java.util.Random;
 
+import butterknife.ButterKnife;
+import butterknife.InjectView;
 import retrofit.RestAdapter;
 import retrofit.RestAdapter.Builder;
 import rx.Observable;
 import rx.android.schedulers.AndroidSchedulers;
+import rx.android.view.OnClickEvent;
+import rx.android.view.ViewObservable;
 import rx.functions.Action1;
+import rx.functions.Func1;
 
 
 public class MainActivity extends ActionBarActivity {
+
+    @InjectView(R.id.refresh_button)
+    View mRefreshView;
+    @InjectView(R.id.user1_text)
+    TextView mUser1Text;
+    @InjectView(R.id.user2_text)
+    TextView mUser2Text;
+    @InjectView(R.id.user3_text)
+    TextView mUser3Text;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        ButterKnife.inject(this);
 
-        // 手動で作る場合ならこっちだが、今回はretrofitを利用するのでつかわない
-        //Observable<String> requestStream = Observable.just("https://api.github.com/users");
-
+        // api kickの準備
         RestAdapter restAdapter = new Builder().setEndpoint("https://api.github.com").build();
         GithubService service = restAdapter.create(GithubService.class);
 
-        Observable<List<GithubUser>> responseStream = service.listUsers();
+
+        // ボタンクリック を stream へ
+        Observable<OnClickEvent> refreshStream = ViewObservable.clicks(mRefreshView);
+
+        // https://api.github.com/users の observable
+
+
+        Observable<List<GithubUser>> responseStream = refreshStream
+                .map(new Func1<OnClickEvent, Integer>() {
+                    @Override
+                    public Integer call(OnClickEvent onClickEvent) {
+                        return new Random().nextInt(500);
+
+                    }
+                })
+                .flatMap(new Func1<Integer, Observable<List<GithubUser>>>() {
+                    @Override
+                    public Observable<List<GithubUser>> call(Integer since) {
+                        return service.listUsers(since);
+                    }
+                });
 
         // debug
         responseStream

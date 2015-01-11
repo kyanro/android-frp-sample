@@ -5,6 +5,7 @@ import com.kyanro.frpdemo.models.api.github.GithubUser;
 import java.util.List;
 
 import retrofit.http.GET;
+import retrofit.http.Query;
 import rx.Observable;
 
 /**
@@ -12,5 +13,5 @@ import rx.Observable;
  */
 public interface GithubService  {
     @GET("/users")
-    Observable<List<GithubUser>> listUsers();
+    Observable<List<GithubUser>> listUsers(@Query("since") int since);
 }
