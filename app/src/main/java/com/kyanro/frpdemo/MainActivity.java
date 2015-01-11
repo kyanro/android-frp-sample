@@ -56,19 +56,8 @@ public class MainActivity extends ActionBarActivity {
 
 
         Observable<List<GithubUser>> responseStream = refreshStream
-                .map(new Func1<OnClickEvent, Integer>() {
-                    @Override
-                    public Integer call(OnClickEvent onClickEvent) {
-                        return new Random().nextInt(500);
-
-                    }
-                })
-                .flatMap(new Func1<Integer, Observable<List<GithubUser>>>() {
-                    @Override
-                    public Observable<List<GithubUser>> call(Integer since) {
-                        return service.listUsers(since);
-                    }
-                });
+                .map(onClickEvent -> new Random().nextInt(500))
+                .flatMap(service::listUsers);
 
         // debug
         responseStream
