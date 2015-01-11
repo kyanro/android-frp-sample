@@ -1,0 +1,6 @@
+*.xml
+
+!/codeStyleSettings.xml
+!/gradle.xml
+!/inspectionProfiles/*.xml
+/inspectionProfiles/profiles_settings.xml
