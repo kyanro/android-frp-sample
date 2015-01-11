@@ -50,22 +50,60 @@ public class MainActivity extends ActionBarActivity {
 
 
         // ボタンクリック を stream へ. stream開始時に clickイベント実行
-        Observable<OnClickEvent> refreshStream = ViewObservable.clicks(mRefreshView, true);
+        Observable<OnClickEvent> refreshClickStream = ViewObservable.clicks(mRefreshView, true);
 
         // https://api.github.com/users の observable
-
-
-        Observable<List<GithubUser>> responseStream = refreshStream
+        Observable<List<GithubUser>> responseStream = refreshClickStream
                 .map(onClickEvent -> new Random().nextInt(500))
                 .flatMap(service::listUsers);
 
-        // debug
-        responseStream
+        // 推薦1ユーザ用stream
+        Observable<GithubUser> suggestion1Stream = responseStream
+                .map(githubUsers -> githubUsers.get(new Random().nextInt(githubUsers.size())))
+                .mergeWith(refreshClickStream.map(onClickEvent -> null));
+        // 推薦2ユーザ用stream
+        Observable<GithubUser> suggestion2Stream = responseStream
+                .map(githubUsers -> githubUsers.get(new Random().nextInt(githubUsers.size())))
+                .mergeWith(refreshClickStream.map(onClickEvent -> null));
+        // 推薦3ユーザ用stream
+        Observable<GithubUser> suggestion3Stream = responseStream
+                .map(githubUsers -> githubUsers.get(new Random().nextInt(githubUsers.size())))
+                .mergeWith(refreshClickStream.map(onClickEvent -> null));
+
+
+        // subscribe
+        suggestion1Stream
                 .observeOn(AndroidSchedulers.mainThread())
-                .subscribe(list -> {
-                    Toast.makeText(MainActivity.this, list.get(0).login, Toast.LENGTH_LONG).show();
-                    Log.d("myrx", "login name:" + list.get(0).login);
-                }, throwable -> Log.d("myrx", "error:" + throwable.getMessage()));
+                .subscribe(githubUser -> {
+                    if (githubUser == null) {
+                        mUser1Text.setText("Refreshing...");
+                    } else {
+                        mUser1Text.setText(githubUser.login);
+                    }
+                });
+
+        suggestion2Stream
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe(githubUser -> {
+                    if (githubUser == null) {
+                        mUser2Text.setText("Refreshing...");
+                    } else {
+                        mUser2Text.setText(githubUser.login);
+                    }
+                });
+
+        suggestion3Stream
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe(githubUser -> {
+                    if (githubUser == null) {
+                        mUser3Text.setText("Refreshing...");
+                    } else {
+                        mUser3Text.setText(githubUser.login);
+                    }
+                });
+
+
+
     }
 
     @Override
