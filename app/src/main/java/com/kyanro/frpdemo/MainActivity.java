@@ -49,8 +49,8 @@ public class MainActivity extends ActionBarActivity {
         GithubService service = restAdapter.create(GithubService.class);
 
 
-        // ボタンクリック を stream へ
-        Observable<OnClickEvent> refreshStream = ViewObservable.clicks(mRefreshView);
+        // ボタンクリック を stream へ. stream開始時に clickイベント実行
+        Observable<OnClickEvent> refreshStream = ViewObservable.clicks(mRefreshView, true);
 
         // https://api.github.com/users の observable
 
