@@ -1,9 +1,13 @@
 package com.kyanro.frpdemo;
 
-import android.support.v7.app.ActionBarActivity;
 import android.os.Bundle;
+import android.support.v7.app.ActionBarActivity;
+import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.widget.Toast;
+
+import rx.Observable;
 
 
 public class MainActivity extends ActionBarActivity {
@@ -12,8 +16,15 @@ public class MainActivity extends ActionBarActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-    }
 
+        Observable<String> requestStream = Observable.just("https://api.github.com/users");
+
+        // debug
+        requestStream.subscribe(s -> {
+                Toast.makeText(MainActivity.this, s, Toast.LENGTH_LONG).show();
+                Log.d("myrx", "request?:" + s);
+        });
+    }
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
