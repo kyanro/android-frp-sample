@@ -25,6 +25,7 @@ import rx.android.view.OnClickEvent;
 import rx.android.view.ViewObservable;
 import rx.functions.Action1;
 import rx.functions.Func1;
+import rx.functions.Func2;
 
 
 public class MainActivity extends ActionBarActivity {
@@ -52,22 +53,30 @@ public class MainActivity extends ActionBarActivity {
         // ボタンクリック を stream へ. stream開始時に clickイベント実行
         Observable<OnClickEvent> refreshClickStream = ViewObservable.clicks(mRefreshView, true);
 
+        // text view のクリックで自身を更新するために streamへ
+        Observable<OnClickEvent> close1ClickStream = ViewObservable.clicks(mUser1Text, true);
+        Observable<OnClickEvent> close2ClickStream = ViewObservable.clicks(mUser2Text, true);
+        Observable<OnClickEvent> close3ClickStream = ViewObservable.clicks(mUser3Text, true);
+
         // https://api.github.com/users の observable
         Observable<List<GithubUser>> responseStream = refreshClickStream
                 .map(onClickEvent -> new Random().nextInt(500))
                 .flatMap(service::listUsers);
 
         // 推薦1ユーザ用stream
-        Observable<GithubUser> suggestion1Stream = responseStream
-                .map(githubUsers -> githubUsers.get(new Random().nextInt(githubUsers.size())))
+        Observable<GithubUser> suggestion1Stream = Observable.combineLatest(
+                close1ClickStream, responseStream, (onClickEvent, githubUsers) ->
+                        githubUsers.get(new Random().nextInt(githubUsers.size())))
                 .mergeWith(refreshClickStream.map(onClickEvent -> null));
         // 推薦2ユーザ用stream
-        Observable<GithubUser> suggestion2Stream = responseStream
-                .map(githubUsers -> githubUsers.get(new Random().nextInt(githubUsers.size())))
+        Observable<GithubUser> suggestion2Stream = Observable.combineLatest(
+                close2ClickStream, responseStream, (onClickEvent, githubUsers) ->
+                        githubUsers.get(new Random().nextInt(githubUsers.size())))
                 .mergeWith(refreshClickStream.map(onClickEvent -> null));
         // 推薦3ユーザ用stream
-        Observable<GithubUser> suggestion3Stream = responseStream
-                .map(githubUsers -> githubUsers.get(new Random().nextInt(githubUsers.size())))
+        Observable<GithubUser> suggestion3Stream = Observable.combineLatest(
+                close3ClickStream, responseStream, (onClickEvent, githubUsers) ->
+                        githubUsers.get(new Random().nextInt(githubUsers.size())))
                 .mergeWith(refreshClickStream.map(onClickEvent -> null));
 
 
@@ -101,7 +110,6 @@ public class MainActivity extends ActionBarActivity {
                         mUser3Text.setText(githubUser.login);
                     }
                 });
-
 
 
     }
