@@ -6,6 +6,8 @@ import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+import android.view.View.OnClickListener;
+import android.view.View.OnLongClickListener;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -14,16 +16,20 @@ import com.kyanro.frpdemo.service.api.github.GithubService;
 
 import java.util.List;
 import java.util.Random;
+import java.util.concurrent.TimeUnit;
 
 import butterknife.ButterKnife;
 import butterknife.InjectView;
 import retrofit.RestAdapter;
 import retrofit.RestAdapter.Builder;
 import rx.Observable;
+import rx.Observable.OnSubscribe;
+import rx.Subscriber;
 import rx.android.schedulers.AndroidSchedulers;
 import rx.android.view.OnClickEvent;
 import rx.android.view.ViewObservable;
 import rx.functions.Action1;
+import rx.functions.Func0;
 import rx.functions.Func1;
 import rx.functions.Func2;
 
@@ -38,6 +44,7 @@ public class MainActivity extends ActionBarActivity {
     TextView mUser2Text;
     @InjectView(R.id.user3_text)
     TextView mUser3Text;
+    private Observable<GithubUser> mSuggestion2Stream;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -55,7 +62,27 @@ public class MainActivity extends ActionBarActivity {
 
         // text view のクリックで自身を更新するために streamへ
         Observable<OnClickEvent> close1ClickStream = ViewObservable.clicks(mUser1Text, true);
-        Observable<OnClickEvent> close2ClickStream = ViewObservable.clicks(mUser2Text, true);
+        Observable<List<OnClickEvent>> close1BufferdClickStream = close1ClickStream.buffer(2, TimeUnit.SECONDS);
+        Observable<Integer> close1Stream = close1BufferdClickStream.map(List::size).filter(count -> count > 1);
+        //Observable<OnClickEvent> close2ClickStream = ViewObservable.clicks(mUser2Text, true);
+        Observable<View> close2Stream = Observable.create(subscriber -> {
+            mUser2Text.setOnClickListener(v -> {
+                if (subscriber.isUnsubscribed()) {
+                    return;
+                }
+                subscriber.onError(new Throwable("close2 error"));
+            });
+            mUser2Text.setOnLongClickListener(v -> {
+                updateUser2();
+                if (subscriber.isUnsubscribed()) {
+                    return true;
+                }
+                subscriber.onNext(v);
+                subscriber.onCompleted();
+                return true;
+            });
+        });
+
         Observable<OnClickEvent> close3ClickStream = ViewObservable.clicks(mUser3Text, true);
 
         // https://api.github.com/users の observable
@@ -65,14 +92,15 @@ public class MainActivity extends ActionBarActivity {
 
         // 推薦1ユーザ用stream
         Observable<GithubUser> suggestion1Stream = Observable.combineLatest(
-                close1ClickStream, responseStream, (onClickEvent, githubUsers) ->
+                close1Stream, responseStream, (onClickEvent, githubUsers) ->
                         githubUsers.get(new Random().nextInt(githubUsers.size())))
                 .mergeWith(refreshClickStream.map(onClickEvent -> null));
         // 推薦2ユーザ用stream
-        Observable<GithubUser> suggestion2Stream = Observable.combineLatest(
-                close2ClickStream, responseStream, (onClickEvent, githubUsers) ->
+        mSuggestion2Stream = Observable.combineLatest(
+                close2Stream, responseStream, (onClickEvent, githubUsers) ->
                         githubUsers.get(new Random().nextInt(githubUsers.size())))
-                .mergeWith(refreshClickStream.map(onClickEvent -> null));
+                .mergeWith(refreshClickStream.map(onClickEvent -> null))
+                .observeOn(AndroidSchedulers.mainThread());
         // 推薦3ユーザ用stream
         Observable<GithubUser> suggestion3Stream = Observable.combineLatest(
                 close3ClickStream, responseStream, (onClickEvent, githubUsers) ->
@@ -81,25 +109,28 @@ public class MainActivity extends ActionBarActivity {
 
 
         // subscribe
-        suggestion1Stream
-                .observeOn(AndroidSchedulers.mainThread())
-                .subscribe(githubUser -> {
+        mPreparedSuggestion1UserStream = suggestion1Stream
+                .flatMap(githubUser -> Observable.create((Subscriber<? super GithubUser> subscriber) -> {
+                    subscriber.onError(new Throwable("force error"));
+                }))
+                .onErrorResumeNext(throwable -> {
+                    Log.d("myrx", "s1 error resume:" + throwable.getMessage());
+                    return Observable.just(null);
+                })
+                .observeOn(AndroidSchedulers.mainThread());
+        mPreparedSuggestion1UserStream.subscribe(
+                githubUser -> {
                     if (githubUser == null) {
                         mUser1Text.setText("Refreshing...");
                     } else {
                         mUser1Text.setText(githubUser.login);
                     }
-                });
+                }
+                , throwable -> Log.d("myrx", "s1 error:" + throwable.getMessage())
+                , () -> Log.d("myrx", "s1 complete"));
 
-        suggestion2Stream
-                .observeOn(AndroidSchedulers.mainThread())
-                .subscribe(githubUser -> {
-                    if (githubUser == null) {
-                        mUser2Text.setText("Refreshing...");
-                    } else {
-                        mUser2Text.setText(githubUser.login);
-                    }
-                });
+
+        updateUser2();
 
         suggestion3Stream
                 .observeOn(AndroidSchedulers.mainThread())
@@ -113,6 +144,22 @@ public class MainActivity extends ActionBarActivity {
 
 
     }
+
+    private void updateUser2() {
+        mSuggestion2Stream
+                .subscribe(
+                githubUser -> {
+                    if (githubUser == null) {
+                        mUser2Text.setText("Refreshing...");
+                    } else {
+                        mUser2Text.setText(githubUser.login);
+                    }
+                }
+                , throwable -> Log.d("myrx", "s2 error:" + throwable.getMessage())
+                , () -> Log.d("myrx", "s2 complete"));
+    }
+
+    Observable<GithubUser> mPreparedSuggestion1UserStream;
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
