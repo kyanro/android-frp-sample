@@ -7,7 +7,6 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import com.kyanro.frpdemo.models.api.github.GithubUser;
 import com.kyanro.frpdemo.service.api.github.GithubService;
@@ -20,12 +19,11 @@ import butterknife.InjectView;
 import retrofit.RestAdapter;
 import retrofit.RestAdapter.Builder;
 import rx.Observable;
+import rx.Subscriber;
 import rx.android.schedulers.AndroidSchedulers;
 import rx.android.view.OnClickEvent;
 import rx.android.view.ViewObservable;
-import rx.functions.Action1;
-import rx.functions.Func1;
-import rx.functions.Func2;
+import rx.subscriptions.CompositeSubscription;
 
 
 public class MainActivity extends ActionBarActivity {
@@ -38,6 +36,7 @@ public class MainActivity extends ActionBarActivity {
     TextView mUser2Text;
     @InjectView(R.id.user3_text)
     TextView mUser3Text;
+    private CompositeSubscription mCompositeSubscription = new CompositeSubscription();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -80,16 +79,33 @@ public class MainActivity extends ActionBarActivity {
                 .mergeWith(refreshClickStream.map(onClickEvent -> null));
 
 
+        Subscriber<GithubUser> subscriber1 = new Subscriber<GithubUser>() {
+            @Override
+            public void onCompleted() {
+                Log.d("myrx", "s1 complete");
+            }
+
+            @Override
+            public void onError(Throwable e) {
+                Log.d("myrx", "s1 error:" + e.getMessage());
+            }
+
+            @Override
+            public void onNext(GithubUser user) {
+                Log.d("myrx", "s1 onNext");
+                String name;
+                if (user == null) {
+                    name = "null";
+                } else {
+                    name = user.login;
+                }
+                mUser1Text.setText(name);
+            }
+        };
+
         // subscribe
-        suggestion1Stream
-                .observeOn(AndroidSchedulers.mainThread())
-                .subscribe(githubUser -> {
-                    if (githubUser == null) {
-                        mUser1Text.setText("Refreshing...");
-                    } else {
-                        mUser1Text.setText(githubUser.login);
-                    }
-                });
+        updateUser(suggestion1Stream, subscriber1);
+        updateUser(suggestion1Stream, subscriber1);
 
         suggestion2Stream
                 .observeOn(AndroidSchedulers.mainThread())
@@ -112,6 +128,25 @@ public class MainActivity extends ActionBarActivity {
                 });
 
 
+    }
+
+    private void updateUser(Observable<GithubUser> suggestionStream, Subscriber<GithubUser> subscriber) {
+        Log.d("myrx", "isUnssubscribed? " + subscriber.isUnsubscribed());
+        if (subscriber.isUnsubscribed()) {
+            Log.d("myrx", "already subscribed");
+            return;
+        }
+        mCompositeSubscription.add(
+                suggestionStream
+                        .observeOn(AndroidSchedulers.mainThread())
+                        .subscribe(subscriber)
+        );
+    }
+
+    @Override
+    protected void onDestroy() {
+        mCompositeSubscription.clear();
+        super.onDestroy();
     }
 
     @Override
