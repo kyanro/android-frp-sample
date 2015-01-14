@@ -14,18 +14,25 @@ import com.kyanro.frpdemo.service.api.github.GithubService;
 
 import java.util.List;
 import java.util.Random;
+import java.util.concurrent.TimeUnit;
 
 import butterknife.ButterKnife;
 import butterknife.InjectView;
 import retrofit.RestAdapter;
 import retrofit.RestAdapter.Builder;
 import rx.Observable;
+import rx.Observable.OnSubscribe;
+import rx.Subscriber;
+import rx.Subscription;
 import rx.android.schedulers.AndroidSchedulers;
 import rx.android.view.OnClickEvent;
 import rx.android.view.ViewObservable;
 import rx.functions.Action1;
+import rx.functions.Func0;
 import rx.functions.Func1;
 import rx.functions.Func2;
+import rx.subjects.PublishSubject;
+import rx.subjects.Subject;
 
 
 public class MainActivity extends ActionBarActivity {
@@ -65,8 +72,7 @@ public class MainActivity extends ActionBarActivity {
 
         // 推薦1ユーザ用stream
         Observable<GithubUser> suggestion1Stream = Observable.combineLatest(
-                close1ClickStream, responseStream, (onClickEvent, githubUsers) ->
-                        githubUsers.get(new Random().nextInt(githubUsers.size())))
+                close1ClickStream, responseStream, (onClickEvent, githubUsers) -> githubUsers.get(new Random().nextInt(githubUsers.size())))
                 .mergeWith(refreshClickStream.map(onClickEvent -> null));
         // 推薦2ユーザ用stream
         Observable<GithubUser> suggestion2Stream = Observable.combineLatest(
@@ -79,9 +85,17 @@ public class MainActivity extends ActionBarActivity {
                         githubUsers.get(new Random().nextInt(githubUsers.size())))
                 .mergeWith(refreshClickStream.map(onClickEvent -> null));
 
-
         // subscribe
-        suggestion1Stream
+        //Subscription subscription1 = updateUser(suggestion1Stream, mUser1Text);
+        //Subscription subscription2 = updateUser(suggestion2Stream, mUser2Text);
+        //Subscription subscription3 = updateUser(suggestion3Stream, mUser3Text);
+
+        Log.d("myrx", "subject1 subscribe check");
+
+        
+
+        PublishSubject<GithubUser> subject1 = PublishSubject.create();
+        subject1
                 .observeOn(AndroidSchedulers.mainThread())
                 .subscribe(githubUser -> {
                     if (githubUser == null) {
@@ -89,29 +103,28 @@ public class MainActivity extends ActionBarActivity {
                     } else {
                         mUser1Text.setText(githubUser.login);
                     }
-                });
+                }, e -> Log.d("myrx", "error handring:" + e.getMessage()));
+        suggestion1Stream
+                .flatMap(githubUser -> Observable.<GithubUser>error(new Throwable("test")))
+                        //.flatMap(githubUser -> Observable.create((Subscriber<? super GithubUser> subscriber) -> subscriber.onError(new Throwable("force error"))))
+                        //.onErrorResumeNext(throwable -> {
+                        //    Log.d("myrx", "s1 error resume:" + throwable.getMessage());
+                        //    return Observable.just(null);
+                        //})
+                .subscribe(subject1);
 
-        suggestion2Stream
+    }
+
+    private Subscription updateUser(Observable<GithubUser> suggestionStream, TextView userText) {
+        return suggestionStream
                 .observeOn(AndroidSchedulers.mainThread())
                 .subscribe(githubUser -> {
                     if (githubUser == null) {
-                        mUser2Text.setText("Refreshing...");
+                        userText.setText("Refreshing...");
                     } else {
-                        mUser2Text.setText(githubUser.login);
+                        userText.setText(githubUser.login);
                     }
-                });
-
-        suggestion3Stream
-                .observeOn(AndroidSchedulers.mainThread())
-                .subscribe(githubUser -> {
-                    if (githubUser == null) {
-                        mUser3Text.setText("Refreshing...");
-                    } else {
-                        mUser3Text.setText(githubUser.login);
-                    }
-                });
-
-
+                }, e -> Log.d("myrx", "error handring:" + e.getMessage()));
     }
 
     @Override
