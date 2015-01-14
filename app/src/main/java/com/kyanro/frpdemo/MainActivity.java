@@ -7,7 +7,6 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import com.kyanro.frpdemo.models.api.github.GithubUser;
 import com.kyanro.frpdemo.service.api.github.GithubService;
@@ -23,9 +22,7 @@ import rx.Observable;
 import rx.android.schedulers.AndroidSchedulers;
 import rx.android.view.OnClickEvent;
 import rx.android.view.ViewObservable;
-import rx.functions.Action1;
 import rx.functions.Func1;
-import rx.functions.Func2;
 
 
 public class MainActivity extends ActionBarActivity {
@@ -83,13 +80,17 @@ public class MainActivity extends ActionBarActivity {
         // subscribe
         suggestion1Stream
                 .observeOn(AndroidSchedulers.mainThread())
+                .flatMap(user -> Observable.<GithubUser>error(new Throwable("s1 force error")))
+                .doOnUnsubscribe(() -> Log.d("myrx", "unsubscribe"))
+                .onErrorResumeNext(throwable -> Observable.never())
                 .subscribe(githubUser -> {
                     if (githubUser == null) {
                         mUser1Text.setText("Refreshing...");
                     } else {
                         mUser1Text.setText(githubUser.login);
                     }
-                });
+                }, e -> Log.d("myrx", "s1 error:" + e.getMessage())
+                , () -> Log.d("myrx", "s1 complete"));
 
         suggestion2Stream
                 .observeOn(AndroidSchedulers.mainThread())
