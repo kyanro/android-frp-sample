@@ -22,7 +22,6 @@ import rx.Observable;
 import rx.android.schedulers.AndroidSchedulers;
 import rx.android.view.OnClickEvent;
 import rx.android.view.ViewObservable;
-import rx.functions.Func1;
 
 
 public class MainActivity extends ActionBarActivity {
@@ -76,13 +75,17 @@ public class MainActivity extends ActionBarActivity {
                         githubUsers.get(new Random().nextInt(githubUsers.size())))
                 .mergeWith(refreshClickStream.map(onClickEvent -> null));
 
-
         // subscribe
         suggestion1Stream
-                .observeOn(AndroidSchedulers.mainThread())
-                .flatMap(user -> Observable.<GithubUser>error(new Throwable("s1 force error")))
                 .doOnUnsubscribe(() -> Log.d("myrx", "unsubscribe"))
-                .onErrorResumeNext(throwable -> Observable.never())
+                .doOnNext(user -> Log.d("myrx", "suggestion1Stream!"))
+                .observeOn(AndroidSchedulers.mainThread())
+                .flatMap(user ->
+                        Observable.<GithubUser>error(new Throwable("s1 force error"))
+                                .onErrorResumeNext(throwable -> {
+                                    Log.d("myrx", "retry with onErrorResumeNext");
+                                    return Observable.empty();
+                                }))
                 .subscribe(githubUser -> {
                     if (githubUser == null) {
                         mUser1Text.setText("Refreshing...");
@@ -90,7 +93,7 @@ public class MainActivity extends ActionBarActivity {
                         mUser1Text.setText(githubUser.login);
                     }
                 }, e -> Log.d("myrx", "s1 error:" + e.getMessage())
-                , () -> Log.d("myrx", "s1 complete"));
+                        , () -> Log.d("myrx", "s1 complete"));
 
         suggestion2Stream
                 .observeOn(AndroidSchedulers.mainThread())
@@ -101,6 +104,7 @@ public class MainActivity extends ActionBarActivity {
                         mUser2Text.setText(githubUser.login);
                     }
                 });
+
 
         suggestion3Stream
                 .observeOn(AndroidSchedulers.mainThread())
