@@ -8,6 +8,7 @@ android {
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_8
         targetCompatibility JavaVersion.VERSION_1_8
+        //compileOptions.encoding = 'utf-8'
     }
 
     defaultConfig {
@@ -31,6 +32,10 @@ dependencies {
 
     compile 'com.jakewharton:butterknife:6.0.0'
     compile 'com.squareup.retrofit:retrofit:1.9.0'
+    compile('com.squareup.retrofit:converter-simplexml:1.9.0') {
+        exclude module: 'stax'
+        exclude module: 'stax-api'
+        exclude module: 'xpp3'
+    }
     compile 'io.reactivex:rxandroid:0.24.0'
-
 }
